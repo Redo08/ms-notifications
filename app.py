@@ -27,8 +27,9 @@ def send_email():
         body = MIMEText(data["body"], "html" if data.get("is_html", False) else "plain")
         msg.attach(body)
 
-        # Enviar correo por SMTP
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        # Enviar correo por SMTP usando puerto 587 y starttls()
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
             server.login(EMAIL_USER, EMAIL_PASS)
             server.sendmail(EMAIL_USER, data["to"], msg.as_string())
 

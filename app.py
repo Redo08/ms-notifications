@@ -1,8 +1,13 @@
+import os
+import smtplib
 from flask import Flask, request, jsonify
-from googleapiclient.discovery import build
-from gmail_service import authenticate_gmail, create_message, send_message
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 app = Flask(__name__)
+
+EMAIL_USER = os.environ.get("EMAIL_USER")
+EMAIL_PASS = os.environ.get("EMAIL_PASS")
 
 @app.route("/send-email", methods=["POST"])
 def send_email():
@@ -13,24 +18,25 @@ def send_email():
         return jsonify({"error": "Faltan campos requeridos: to, subject, body"}), 400
 
     try:
-        creds = authenticate_gmail()
-        service = build("gmail", "v1", credentials=creds)
+        # Crear email
+        msg = MIMEMultipart("alternative")
+        msg["From"] = EMAIL_USER
+        msg["To"] = data["to"]
+        msg["Subject"] = data["subject"]
 
-        # Permitir texto plano o HTML
-        message = create_message(
-            sender="juan.reyes54587@ucaldas.edu.co",
-            to=data["to"],
-            subject=data["subject"],
-            body=data["body"],
-            is_html=data.get("is_html", False)
-        )
+        body = MIMEText(data["body"], "html" if data.get("is_html", False) else "plain")
+        msg.attach(body)
 
-        result = send_message(service, "me", message)
-        return jsonify({"status": "success", "message_id": result["id"]}), 200
+        # Enviar correo por SMTP
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASS)
+            server.sendmail(EMAIL_USER, data["to"], msg.as_string())
+
+        return jsonify({"status": "success"}), 200
 
     except Exception as e:
-        print(f"Error al enviar el correo: {e}")
+        print("Error:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(port=5000)
